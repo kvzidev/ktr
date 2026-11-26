@@ -1,0 +1,9 @@
+service: {{projectName}}
+image: {{projectName}}
+
+servers:
+  web:
+    - 127.0.0.1
+
+builder:
+  arch: amd64
