@@ -9,6 +9,7 @@ import pc from "picocolors";
 import YAML from "yaml";
 import { applyPlan, isGitWorkingTreeDirty } from "./engine/apply.js";
 import { diffConfigs } from "./engine/diff.js";
+import { applyTemplate } from "./engine/template.js";
 import {
   createDefaultKfg,
   type KfgConfig,
@@ -269,11 +270,6 @@ const doctorCommand = defineCommand({
     fix: { type: "boolean", default: false },
   },
   async run({ args }) {
-    const firstPositional = args._?.[0];
-    if (firstPositional === "add" || firstPositional === "status" || firstPositional === "doctor") {
-      return;
-    }
-
     const cwd = process.cwd();
     const cfg = await loadExistingKfg(cwd);
     if (!cfg) {
@@ -327,7 +323,12 @@ const main = defineCommand({
     yes: { type: "boolean", default: false },
     from: {
       type: "string",
-      description: "Path to an existing ktr.kfg template",
+      description: "Path to an existing ktr.kfg config",
+    },
+    template: {
+      type: "string",
+      description:
+        "Git URL, gh/owner/repo, or local path to a template project",
     },
     "no-install": { type: "boolean", default: false },
   },
@@ -338,11 +339,60 @@ const main = defineCommand({
   },
   async run({ args }) {
     const firstPositional = args._?.[0];
-    if (firstPositional === "add" || firstPositional === "status" || firstPositional === "doctor") {
+    if (
+      firstPositional === "add" ||
+      firstPositional === "status" ||
+      firstPositional === "doctor"
+    ) {
       return;
     }
 
     const cwd = process.cwd();
+
+    if (args.template && args.from) {
+      console.error(pc.red("Cannot combine --template and --from."));
+      process.exit(1);
+    }
+
+    if (args.template) {
+      let projectName = path.basename(cwd);
+      if (!args.yes) {
+        const entered = await p.text({
+          message: "Project name",
+          initialValue: projectName,
+          validate(value) {
+            if (!value?.trim()) return "Project name is required";
+          },
+        });
+        if (p.isCancel(entered)) {
+          p.cancel("Aborted.");
+          process.exit(0);
+        }
+        projectName = entered.trim();
+      }
+
+      const result = await applyTemplate({
+        cwd,
+        sourceInput: args.template,
+        projectName,
+        dryRun: Boolean(args["dry-run"]),
+      });
+
+      if (args["dry-run"]) {
+        const target =
+          result.source.kind === "git" ? result.source.url : result.source.path;
+        p.note(`Would bootstrap ${projectName} from ${target}`, "Dry-run plan");
+        return;
+      }
+
+      if (!args["no-install"] && result.config) {
+        await runPostApplyInstall(cwd, result.config);
+      }
+
+      p.outro(`Bootstrapped ${projectName} from template.`);
+      return;
+    }
+
     const existing = await loadExistingKfg(cwd);
 
     let desired: KfgConfig;

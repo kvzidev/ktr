@@ -65,7 +65,7 @@ export const sharedModules: ModuleDefinition[] = [
           check: "biome check --write .",
         },
         devDependencies: {
-          "@biomejs/biome": "^2.0.0",
+          "@biomejs/biome": "^2.6.9",
         },
       });
     },
