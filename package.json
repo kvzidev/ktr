@@ -1,5 +1,5 @@
 {
-  "name": "ktr",
+  "name": "@kvzidev/ktr",
   "version": "0.0.1",
   "description": "Kev Tec Red (KTR) is an idempotent E2E web stack scaffolder and expander",
   "bin": {
@@ -13,7 +13,6 @@
     "node": ">=22.0.0",
     "pnpm": ">=9.0.0"
   },
-  "main": "index.js",
   "scripts": {
     "dev": "tsdown --watch",
     "build": "tsdown",
@@ -21,9 +20,23 @@
     "check": "biome check --write .",
     "prepublishOnly": "pnpm run check && pnpm run test && pnpm run build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "cli",
+    "scaffolder",
+    "monorepo",
+    "pnpm",
+    "turborepo",
+    "astro",
+    "hono",
+    "kysely",
+    "typescript"
+  ],
+  "author": "Kevin S. Zanzi (kvzidev)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kvzidev/ktr.git"
+  },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
