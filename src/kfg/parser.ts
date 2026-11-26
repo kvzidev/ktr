@@ -26,11 +26,11 @@ function stripInlineComment(raw: string): string {
 }
 
 function unquote(value: string): string {
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
+  if (value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1).replace(/\\"/g, '"');
+  }
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replace(/\\'/g, "'");
   }
   return value;
 }
@@ -92,6 +92,19 @@ export function parseKfg(input: string): KfgDoc {
   return doc;
 }
 
+function formatScalar(val: string | number | boolean): string {
+  if (typeof val !== "string") return String(val);
+  const needsQuotes =
+    val.length === 0 ||
+    val.includes(";") ||
+    val !== val.trim() ||
+    val.startsWith("[") ||
+    val.startsWith('"') ||
+    val.startsWith("'");
+  if (!needsQuotes) return val;
+  return `"${val.replace(/"/g, '\\"')}"`;
+}
+
 export function stringifyKfg(doc: KfgDoc): string {
   const lines: string[] = [
     "; ktr.kfg — managed by `npx ktr` (safe to edit; re-run `npx ktr` to sync)",
@@ -104,8 +117,8 @@ export function stringifyKfg(doc: KfgDoc): string {
       const formatted = Array.isArray(val)
         ? val.length === 0
           ? "none"
-          : `[${val.join(", ")}]`
-        : String(val);
+          : `[${val.map(formatScalar).join(", ")}]`
+        : formatScalar(val);
       lines.push(`${key} : ${formatted}`);
     }
     lines.push("");

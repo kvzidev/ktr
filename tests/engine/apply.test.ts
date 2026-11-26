@@ -60,11 +60,17 @@ describe("ApplyContext", () => {
     expect(pkg.dependencies.zod).toBe("^4.0.0");
     expect(pkg.dependencies.hono).toBe("^4.7.0");
 
-    await ctx.mergeDockerService("postgres", { image: "postgres:17-alpine" });
-    await ctx.mergeDockerService("postgres", { image: "postgres:15" });
+    await ctx.mergeDockerService("postgres", { image: "postgres:17-alpine" }, [
+      "postgres_data",
+    ]);
+    await ctx.mergeDockerService("postgres", { image: "postgres:15" }, [
+      "postgres_data",
+    ]);
     const compose = await fs.readFile(path.join(cwd, "compose.yml"), "utf8");
     expect(compose).toContain("postgres:17-alpine");
     expect(compose).not.toContain("postgres:15");
+    expect(compose).toContain("volumes:");
+    expect(compose).toContain("postgres_data:");
 
     await ctx.appendEnvExample({ DATABASE_URL: "pg://a", PORT: "3001" });
     await ctx.appendEnvExample({

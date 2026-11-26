@@ -58,7 +58,11 @@ function buildModule(
       }
 
       for (const svc of option.dockerServices ?? []) {
-        await ctx.mergeDockerService(svc.name, svc.definition);
+        await ctx.mergeDockerService(
+          svc.name,
+          svc.definition,
+          svc.volumes ?? [],
+        );
       }
 
       if (option.envVars) {

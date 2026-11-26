@@ -20,6 +20,7 @@ import {
 import { getDormantLayers, promptLayer, runWizard } from "./prompts/wizard.js";
 import { type CatalogOption, STACK_CATALOG } from "./registry/catalog.js";
 import { MODULE_REGISTRY } from "./registry/index.js";
+import { KTR_VERSION } from "./version.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -157,12 +158,16 @@ async function collectDoctorIssues(
 
   const expectedWorkspaces = new Set<string>();
   const expectedDockerServices = new Set<string>();
+  const expectedDockerVolumes = new Set<string>();
   const expectedEnvKeys = new Set<string>();
 
   for (const opt of activeOptions) {
     if (opt.expectedWorkspace) expectedWorkspaces.add(opt.expectedWorkspace);
     for (const svc of opt.dockerServices ?? []) {
       expectedDockerServices.add(svc.name);
+      for (const vol of svc.volumes ?? []) {
+        expectedDockerVolumes.add(vol);
+      }
     }
     for (const key of Object.keys(opt.envVars ?? {})) {
       expectedEnvKeys.add(key);
@@ -175,17 +180,23 @@ async function collectDoctorIssues(
     }
   }
 
-  if (expectedDockerServices.size > 0) {
+  if (expectedDockerServices.size > 0 || expectedDockerVolumes.size > 0) {
     const composePath = path.join(cwd, "compose.yml");
     if (!existsSync(composePath)) {
       issues.push("Missing compose.yml");
     } else {
       const composeDoc = YAML.parse(await fs.readFile(composePath, "utf8")) as {
         services?: Record<string, unknown>;
+        volumes?: Record<string, unknown>;
       };
       for (const svcName of expectedDockerServices) {
         if (!composeDoc?.services?.[svcName]) {
           issues.push(`compose.yml missing ${svcName} service`);
+        }
+      }
+      for (const volName of expectedDockerVolumes) {
+        if (!composeDoc?.volumes?.[volName]) {
+          issues.push(`compose.yml missing ${volName} volume`);
         }
       }
     }
@@ -298,6 +309,7 @@ const doctorCommand = defineCommand({
   },
   args: {
     fix: { type: "boolean", default: false },
+    "no-install": { type: "boolean", default: false },
   },
   async run({ args }) {
     const cwd = process.cwd();
@@ -331,13 +343,18 @@ const doctorCommand = defineCommand({
       return;
     }
 
+    const noInstall = Boolean(args["no-install"]);
     await applyPlan({
       cwd,
       existing: null,
       desired: cfg,
       registry: MODULE_REGISTRY,
       dryRun: false,
+      noInstall,
     });
+    if (!noInstall) {
+      await runPostApplyInstall(cwd, cfg);
+    }
     p.outro("Applied fixes from ktr.kfg.");
   },
 });
@@ -345,7 +362,7 @@ const doctorCommand = defineCommand({
 const main = defineCommand({
   meta: {
     name: "ktr",
-    version: "0.0.1",
+    version: KTR_VERSION,
     description: "Idempotent E2E web stack scaffolder and expander",
   },
   args: {
@@ -499,4 +516,8 @@ const main = defineCommand({
   },
 });
 
-runMain(main);
+export { collectDoctorIssues, main };
+
+if (!process.env.VITEST) {
+  runMain(main);
+}

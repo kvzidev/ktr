@@ -48,6 +48,8 @@ export const frontendLayer: CatalogLayer = {
               "--",
               "--template",
               "react-ts",
+              "--no-interactive",
+              "--no-immediate",
             ],
             fallbackPackage: {
               path: "apps/web/package.json",

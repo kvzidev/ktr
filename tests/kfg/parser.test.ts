@@ -73,13 +73,22 @@ no_colon_line
     const doc = {
       meta: { schema_version: 1, project_name: "demo" },
       shared: { testing: [] },
+      notes: {
+        with_semicolon: "hello ; world",
+        with_spaces: " padded ",
+      },
     };
     const serialized = stringifyKfg(doc);
     expect(serialized).toContain("schema_version : 1");
     expect(serialized).toContain("testing : none");
+    expect(serialized).toContain('with_semicolon : "hello ; world"');
     expect(parseKfg(serialized)).toEqual({
       meta: { schema_version: 1, project_name: "demo" },
       shared: { testing: "none" },
+      notes: {
+        with_semicolon: "hello ; world",
+        with_spaces: " padded ",
+      },
     });
   });
 });

@@ -41,6 +41,7 @@ export const dataLayer: CatalogLayer = {
                 ports: ["5432:5432"],
                 volumes: ["postgres_data:/var/lib/postgresql/data"],
               },
+              volumes: ["postgres_data"],
             },
           ],
           envVars: { DATABASE_URL: "postgresql://ktr:ktr@localhost:5432/ktr" },

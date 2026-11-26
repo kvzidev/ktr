@@ -53,6 +53,7 @@ export const opsLayer: CatalogLayer = {
           value: "resend",
           label: "Resend",
           requires: ["shared.workspace:turborepo"],
+          expectedWorkspace: "packages/ops/package.json",
           templates: [
             {
               targetPath: "packages/ops/package.json",
@@ -66,6 +67,7 @@ export const opsLayer: CatalogLayer = {
           value: "postmark",
           label: "Postmark",
           requires: ["shared.workspace:turborepo"],
+          expectedWorkspace: "packages/ops/package.json",
           templates: [
             {
               targetPath: "packages/ops/package.json",
@@ -86,6 +88,7 @@ export const opsLayer: CatalogLayer = {
           value: "pino",
           label: "Pino",
           requires: ["shared.workspace:turborepo"],
+          expectedWorkspace: "packages/ops/package.json",
           templates: [
             {
               targetPath: "packages/ops/package.json",
@@ -109,6 +112,7 @@ export const opsLayer: CatalogLayer = {
           value: "sentry",
           label: "Sentry",
           requires: ["shared.workspace:turborepo"],
+          expectedWorkspace: "packages/ops/package.json",
           templates: [
             {
               targetPath: "packages/ops/package.json",
@@ -122,6 +126,7 @@ export const opsLayer: CatalogLayer = {
           value: "glitchtip",
           label: "GlitchTip",
           requires: ["shared.workspace:turborepo"],
+          expectedWorkspace: "packages/ops/package.json",
           templates: [
             {
               targetPath: "packages/ops/package.json",

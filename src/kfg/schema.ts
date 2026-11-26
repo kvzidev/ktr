@@ -4,6 +4,7 @@ import {
   type CatalogSlot,
   STACK_CATALOG,
 } from "../registry/catalog.js";
+import { KTR_VERSION } from "../version.js";
 import {
   isKfgDate,
   KFG_DATE_PATTERN,
@@ -73,7 +74,7 @@ for (const layer of STACK_CATALOG) {
 export const kfgSchema = z.object({
   meta: z.object({
     schema_version: z.number().int().positive().default(1),
-    cli_version: versionSchema.default("0.0.1"),
+    cli_version: versionSchema.default(KTR_VERSION),
     project_name: z.string().min(1),
     package_manager: z.literal("pnpm").default("pnpm"),
     created_at: dateSchema.optional(),
@@ -150,7 +151,7 @@ export const LAYER_NAMES: readonly LayerName[] = STACK_CATALOG.map(
 
 export function createDefaultKfg(
   projectName: string,
-  cliVersion = "0.0.1",
+  cliVersion = KTR_VERSION,
 ): KfgConfig {
   return kfgSchema.parse({
     meta: {

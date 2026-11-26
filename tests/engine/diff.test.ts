@@ -21,6 +21,8 @@ describe("diffConfigs", () => {
     expect(applyIds).toContain("data.database:postgres");
     expect(applyIds).toContain("data.dal:kysely");
     expect(applyIds).toContain("commerce.mor:creem");
+    expect(diff.autoAdded).not.toContain("shared.workspace:turborepo");
+    expect(diff.autoAdded).toContain("backend.framework:hono");
     expect(diff.finalConfig.backend.framework).toBe("hono");
     expect(diff.finalConfig.data.database).toBe("postgres");
   });

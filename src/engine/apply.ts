@@ -136,12 +136,26 @@ export class ApplyContext {
   async mergeDockerService(
     serviceName: string,
     definition: Record<string, unknown>,
+    namedVolumes: string[] = [],
   ) {
     const abs = path.join(this.cwd, "compose.yml");
     const raw = await fs.readFile(abs, "utf8").catch(() => "services: {}\n");
     const doc = YAML.parseDocument(raw);
+    let changed = false;
+
     if (!doc.hasIn(["services", serviceName])) {
       doc.setIn(["services", serviceName], definition);
+      changed = true;
+    }
+
+    for (const volumeName of namedVolumes) {
+      if (!doc.hasIn(["volumes", volumeName])) {
+        doc.setIn(["volumes", volumeName], {});
+        changed = true;
+      }
+    }
+
+    if (changed) {
       if (!this.dryRun) {
         await fs.writeFile(abs, doc.toString(), "utf8");
       }

@@ -25,11 +25,12 @@ export function diffConfigs(
 
   const { ordered, autoAdded } = resolveModules(newOrChangedIds, registry);
   const modulesToApply = ordered.filter((mod) => !existingIds.has(mod.id));
-  const finalConfig = applyModuleIdsToConfig(desired, autoAdded);
+  const newlyAutoAdded = autoAdded.filter((id) => !existingIds.has(id));
+  const finalConfig = applyModuleIdsToConfig(desired, newlyAutoAdded);
 
   return {
     modulesToApply,
-    autoAdded,
+    autoAdded: newlyAutoAdded,
     finalConfig,
   };
 }

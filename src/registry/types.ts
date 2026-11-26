@@ -33,6 +33,7 @@ export interface InlineFileSpec {
 export interface DockerServiceSpec {
   name: string;
   definition: Record<string, unknown>;
+  volumes?: string[];
 }
 
 export interface CatalogOption {
