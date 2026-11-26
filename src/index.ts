@@ -269,6 +269,11 @@ const doctorCommand = defineCommand({
     fix: { type: "boolean", default: false },
   },
   async run({ args }) {
+    const firstPositional = args._?.[0];
+    if (firstPositional === "add" || firstPositional === "status" || firstPositional === "doctor") {
+      return;
+    }
+
     const cwd = process.cwd();
     const cfg = await loadExistingKfg(cwd);
     if (!cfg) {
@@ -332,6 +337,11 @@ const main = defineCommand({
     doctor: doctorCommand,
   },
   async run({ args }) {
+    const firstPositional = args._?.[0];
+    if (firstPositional === "add" || firstPositional === "status" || firstPositional === "doctor") {
+      return;
+    }
+
     const cwd = process.cwd();
     const existing = await loadExistingKfg(cwd);
 
