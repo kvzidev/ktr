@@ -1,6 +1,6 @@
 {
   "name": "@kvzidev/ktr",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Kev Tec Red (KTR) is an idempotent E2E web stack scaffolder and expander",
   "bin": {
     "ktr": "./dist/index.mjs"
