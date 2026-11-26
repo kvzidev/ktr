@@ -1,11 +1,11 @@
 import * as p from "@clack/prompts";
-import { STACK_CATALOG } from "../catalog.js";
 import {
   createDefaultKfg,
   type KfgConfig,
   LAYER_NAMES,
   type LayerName,
 } from "../kfg/schema.js";
+import { STACK_CATALOG } from "../registry/catalog.js";
 
 function handleCancel<T>(value: T): Exclude<T, symbol> {
   if (p.isCancel(value)) {

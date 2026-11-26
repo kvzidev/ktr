@@ -3,7 +3,7 @@ import {
   type CatalogLayer,
   type CatalogSlot,
   STACK_CATALOG,
-} from "../catalog.js";
+} from "../registry/catalog.js";
 import {
   isKfgDate,
   KFG_DATE_PATTERN,

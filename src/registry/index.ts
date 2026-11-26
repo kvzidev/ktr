@@ -1,9 +1,9 @@
+import type { LayerName } from "../kfg/schema.js";
 import {
   type CatalogOption,
   type CatalogSlot,
   STACK_CATALOG,
-} from "../catalog.js";
-import type { LayerName } from "../kfg/schema.js";
+} from "./catalog.js";
 import type { ModuleDefinition } from "./types.js";
 
 function buildModule(

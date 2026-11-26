@@ -7,7 +7,6 @@ import * as p from "@clack/prompts";
 import { defineCommand, runMain } from "citty";
 import pc from "picocolors";
 import YAML from "yaml";
-import { type CatalogOption, STACK_CATALOG } from "./catalog.js";
 import { applyPlan, isGitWorkingTreeDirty } from "./engine/apply.js";
 import { diffConfigs } from "./engine/diff.js";
 import { applyTemplate } from "./engine/template.js";
@@ -19,6 +18,7 @@ import {
   parseAndValidateKfg,
 } from "./kfg/schema.js";
 import { getDormantLayers, promptLayer, runWizard } from "./prompts/wizard.js";
+import { type CatalogOption, STACK_CATALOG } from "./registry/catalog.js";
 import { MODULE_REGISTRY } from "./registry/index.js";
 
 const execFileAsync = promisify(execFile);
