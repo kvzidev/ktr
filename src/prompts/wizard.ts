@@ -1,3 +1,4 @@
+import path from "node:path";
 import * as p from "@clack/prompts";
 import {
   createDefaultKfg,
@@ -170,10 +171,17 @@ export async function promptFromPreset(
   return cfg;
 }
 
+export interface WizardResult {
+  config: KfgConfig;
+  targetDir: string;
+  useGit: boolean;
+}
+
 export async function runWizard(
   existing: KfgConfig | null,
-  defaultProjectName = "my-app",
-): Promise<KfgConfig> {
+  defaultTargetDir = "./my-app",
+  preselectedUseGit = false,
+): Promise<WizardResult> {
   p.intro(
     existing
       ? `ktr — expanding ${existing.meta.project_name}`
@@ -200,18 +208,33 @@ export async function runWizard(
         required: true,
       }),
     );
-    return promptSelectedLayers(existing, toConfigure as string[]);
+    const config = await promptSelectedLayers(
+      existing,
+      toConfigure as string[],
+    );
+    return { config, targetDir: ".", useGit: false };
   }
 
+  const targetDir = handleCancel(
+    await p.text({
+      message: "Where should we create your new project?",
+      initialValue: defaultTargetDir,
+      validate(value) {
+        if (!value?.trim()) return "Target folder is required";
+      },
+    }),
+  ).trim();
+
+  const inferredName = path.basename(path.resolve(targetDir)) || "my-app";
   const projectName = handleCancel(
     await p.text({
       message: "Project name",
-      initialValue: defaultProjectName,
+      initialValue: inferredName,
       validate(value) {
         if (!value?.trim()) return "Project name is required";
       },
     }),
-  );
+  ).trim();
 
   const mode = handleCancel(
     await p.select({
@@ -241,5 +264,15 @@ export async function runWizard(
     }),
   );
 
-  return promptFromPreset(mode as string, projectName.trim());
+  const config = await promptFromPreset(mode as string, projectName);
+  const useGit = preselectedUseGit
+    ? true
+    : handleCancel(
+        await p.confirm({
+          message: "Initialize a Git repository?",
+          initialValue: false,
+        }),
+      );
+
+  return { config, targetDir, useGit };
 }

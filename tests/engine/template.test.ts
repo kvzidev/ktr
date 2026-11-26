@@ -180,4 +180,29 @@ describe("template resolver and applyTemplate", () => {
 
     expect(await fs.readdir(targetDir)).toEqual([]);
   });
+
+  it("initializes .git and .gitignore on template when useGit is true", async () => {
+    const sourceDir = await makeTempDir("ktr-git-src-");
+    const targetDir = await makeTempDir("ktr-git-dst-");
+    await fs.writeFile(
+      path.join(sourceDir, "ktr.kfg"),
+      serializeKfg(createDefaultKfg("tpl")),
+      "utf8",
+    );
+
+    await applyTemplate({
+      cwd: targetDir,
+      sourceInput: sourceDir,
+      projectName: "git-tpl",
+      dryRun: false,
+      useGit: true,
+    });
+
+    await expect(
+      fs.access(path.join(targetDir, ".git")),
+    ).resolves.toBeUndefined();
+    await expect(
+      fs.access(path.join(targetDir, ".gitignore")),
+    ).resolves.toBeUndefined();
+  });
 });

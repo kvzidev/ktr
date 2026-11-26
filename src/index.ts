@@ -58,8 +58,17 @@ async function executeApplyFlow(options: {
   dryRun: boolean;
   yes: boolean;
   noInstall: boolean;
+  useGit?: boolean;
 }): Promise<void> {
-  const { cwd, existing, desired, dryRun, yes, noInstall } = options;
+  const {
+    cwd,
+    existing,
+    desired,
+    dryRun,
+    yes,
+    noInstall,
+    useGit = false,
+  } = options;
 
   if (existing && !dryRun && !yes && (await isGitWorkingTreeDirty(cwd))) {
     const proceed = await p.confirm({
@@ -92,6 +101,7 @@ async function executeApplyFlow(options: {
     registry: MODULE_REGISTRY,
     dryRun,
     noInstall,
+    useGit,
   });
 
   if (dryRun) {
@@ -351,6 +361,11 @@ const main = defineCommand({
         "Git URL, gh/owner/repo, or local path to a template project",
     },
     "no-install": { type: "boolean", default: false },
+    "use-git": {
+      type: "boolean",
+      default: false,
+      description: "Initialize a Git repository and .gitignore",
+    },
   },
   subCommands: {
     add: addCommand,
@@ -368,6 +383,8 @@ const main = defineCommand({
     }
 
     const cwd = process.cwd();
+    let targetCwd = cwd;
+    let useGit = Boolean(args["use-git"]);
 
     if (args.template && args.from) {
       console.error(pc.red("Cannot combine --template and --from."));
@@ -375,7 +392,22 @@ const main = defineCommand({
     }
 
     if (args.template) {
-      let projectName = path.basename(cwd);
+      if (!args.yes) {
+        const enteredDir = await p.text({
+          message: "Where should we create your new project?",
+          initialValue: "./my-app",
+          validate(value) {
+            if (!value?.trim()) return "Target folder is required";
+          },
+        });
+        if (p.isCancel(enteredDir)) {
+          p.cancel("Aborted.");
+          process.exit(0);
+        }
+        targetCwd = path.resolve(cwd, enteredDir.trim());
+      }
+
+      let projectName = path.basename(targetCwd);
       if (!args.yes) {
         const entered = await p.text({
           message: "Project name",
@@ -389,13 +421,26 @@ const main = defineCommand({
           process.exit(0);
         }
         projectName = entered.trim();
+
+        if (!useGit) {
+          const confirmGit = await p.confirm({
+            message: "Initialize a Git repository?",
+            initialValue: false,
+          });
+          if (p.isCancel(confirmGit)) {
+            p.cancel("Aborted.");
+            process.exit(0);
+          }
+          useGit = confirmGit;
+        }
       }
 
       const result = await applyTemplate({
-        cwd,
+        cwd: targetCwd,
         sourceInput: args.template,
         projectName,
         dryRun: Boolean(args["dry-run"]),
+        useGit,
       });
 
       if (args["dry-run"]) {
@@ -406,7 +451,7 @@ const main = defineCommand({
       }
 
       if (!args["no-install"] && result.config) {
-        await runPostApplyInstall(cwd, result.config);
+        await runPostApplyInstall(targetCwd, result.config);
       }
 
       p.outro(`Bootstrapped ${projectName} from template.`);
@@ -419,19 +464,37 @@ const main = defineCommand({
     if (args.from) {
       const fromRaw = await fs.readFile(path.resolve(cwd, args.from), "utf8");
       desired = parseAndValidateKfg(fromRaw);
+      if (!existing && !args.yes) {
+        const enteredDir = await p.text({
+          message: "Where should we create your new project?",
+          initialValue: `./${desired.meta.project_name}`,
+          validate(value) {
+            if (!value?.trim()) return "Target folder is required";
+          },
+        });
+        if (p.isCancel(enteredDir)) {
+          p.cancel("Aborted.");
+          process.exit(0);
+        }
+        targetCwd = path.resolve(cwd, enteredDir.trim());
+      }
     } else if (args.yes) {
       desired = existing ?? createDefaultKfg(path.basename(cwd));
     } else {
-      desired = await runWizard(existing, path.basename(cwd));
+      const wizardResult = await runWizard(existing, "./my-app", useGit);
+      targetCwd = path.resolve(cwd, wizardResult.targetDir);
+      desired = wizardResult.config;
+      useGit = useGit || wizardResult.useGit;
     }
 
     await executeApplyFlow({
-      cwd,
+      cwd: targetCwd,
       existing,
       desired,
       dryRun: Boolean(args["dry-run"]),
       yes: Boolean(args.yes),
       noInstall: Boolean(args["no-install"]),
+      useGit,
     });
   },
 });

@@ -22,7 +22,8 @@ export interface ApplyOperation {
     | "docker"
     | "env"
     | "create"
-    | "install";
+    | "install"
+    | "git";
   target: string;
 }
 
@@ -259,6 +260,20 @@ export async function isGitWorkingTreeDirty(cwd: string): Promise<boolean> {
   }
 }
 
+export async function initGitRepository(
+  cwd: string,
+  dryRun: boolean,
+): Promise<"initialized" | "skipped"> {
+  if (existsSync(path.join(cwd, ".git"))) {
+    return "skipped";
+  }
+  if (!dryRun) {
+    await fs.mkdir(cwd, { recursive: true });
+    await execFileAsync("git", ["init"], { cwd });
+  }
+  return "initialized";
+}
+
 export async function applyPlan(options: {
   cwd: string;
   existing: KfgConfig | null;
@@ -266,6 +281,7 @@ export async function applyPlan(options: {
   registry: Map<string, ModuleDefinition>;
   dryRun: boolean;
   noInstall?: boolean;
+  useGit?: boolean;
 }): Promise<{
   finalConfig: KfgConfig;
   autoAdded: string[];
@@ -278,6 +294,7 @@ export async function applyPlan(options: {
     registry,
     dryRun,
     noInstall = false,
+    useGit = false,
   } = options;
   const { modulesToApply, autoAdded, finalConfig } = diffConfigs(
     existing,
@@ -293,7 +310,16 @@ export async function applyPlan(options: {
   await ctx.flushPackages();
   await syncBarrels(ctx, finalConfig);
 
+  if (useGit) {
+    await ctx.writeTemplateIfMissing(".gitignore", "shared/gitignore");
+    const gitStatus = await initGitRepository(cwd, dryRun);
+    if (gitStatus === "initialized") {
+      ctx.operations.push({ type: "git", target: "git init" });
+    }
+  }
+
   if (!dryRun) {
+    await fs.mkdir(cwd, { recursive: true });
     await fs.writeFile(
       path.join(cwd, "ktr.kfg"),
       serializeKfg(finalConfig),

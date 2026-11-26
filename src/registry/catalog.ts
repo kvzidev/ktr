@@ -1,5 +1,3 @@
-import type { CatalogLayer } from "./types.js";
-
 import { backendLayer } from "./layers/backend.js";
 import { commerceLayer } from "./layers/commerce.js";
 import { dataLayer } from "./layers/data.js";
@@ -8,6 +6,7 @@ import { identityLayer } from "./layers/identity.js";
 import { infraLayer } from "./layers/infra.js";
 import { opsLayer } from "./layers/ops.js";
 import { sharedLayer } from "./layers/shared.js";
+import type { CatalogLayer } from "./types.js";
 
 export type {
   CatalogLayer,

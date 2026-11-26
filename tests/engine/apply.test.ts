@@ -4,9 +4,12 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ApplyContext,
+  applyPlan,
   deepMergePreservingExisting,
   formatPackageArg,
 } from "../../src/engine/apply.js";
+import { createDefaultKfg } from "../../src/kfg/schema.js";
+import { MODULE_REGISTRY } from "../../src/registry/index.js";
 
 const tempDirs: string[] = [];
 
@@ -128,5 +131,58 @@ describe("ApplyContext", () => {
       type: "install",
       target: "apps/web: nanostores",
     });
+  });
+
+  it("creates .gitignore and initializes git only when useGit is true", async () => {
+    const noGitDir = await makeTempDir();
+    await applyPlan({
+      cwd: noGitDir,
+      existing: null,
+      desired: createDefaultKfg("no-git-app"),
+      registry: MODULE_REGISTRY,
+      dryRun: false,
+      noInstall: true,
+      useGit: false,
+    });
+    await expect(
+      fs.access(path.join(noGitDir, ".gitignore")),
+    ).rejects.toThrow();
+    await expect(fs.access(path.join(noGitDir, ".git"))).rejects.toThrow();
+
+    const dryGitDir = await makeTempDir();
+    const dryRes = await applyPlan({
+      cwd: dryGitDir,
+      existing: null,
+      desired: createDefaultKfg("dry-git-app"),
+      registry: MODULE_REGISTRY,
+      dryRun: true,
+      noInstall: true,
+      useGit: true,
+    });
+    expect(dryRes.operations).toContainEqual({
+      type: "git",
+      target: "git init",
+    });
+    await expect(
+      fs.access(path.join(dryGitDir, ".gitignore")),
+    ).rejects.toThrow();
+    await expect(fs.access(path.join(dryGitDir, ".git"))).rejects.toThrow();
+
+    const gitDir = await makeTempDir();
+    await applyPlan({
+      cwd: gitDir,
+      existing: null,
+      desired: createDefaultKfg("git-app"),
+      registry: MODULE_REGISTRY,
+      dryRun: false,
+      noInstall: true,
+      useGit: true,
+    });
+    const gitignore = await fs.readFile(
+      path.join(gitDir, ".gitignore"),
+      "utf8",
+    );
+    expect(gitignore).toContain("node_modules/");
+    await expect(fs.access(path.join(gitDir, ".git"))).resolves.toBeUndefined();
   });
 });

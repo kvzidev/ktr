@@ -9,6 +9,7 @@ import {
   parseAndValidateKfg,
   serializeKfg,
 } from "../kfg/schema.js";
+import { ApplyContext, initGitRepository } from "./apply.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -83,11 +84,12 @@ export async function applyTemplate(options: {
   sourceInput: string;
   projectName: string;
   dryRun: boolean;
+  useGit?: boolean;
 }): Promise<{
   source: TemplateSource;
   config?: KfgConfig;
 }> {
-  const { cwd, sourceInput, projectName, dryRun } = options;
+  const { cwd, sourceInput, projectName, dryRun, useGit = false } = options;
   await assertTargetDirectoryEmpty(cwd);
 
   const source = resolveTemplateSource(sourceInput, cwd);
@@ -142,6 +144,12 @@ export async function applyTemplate(options: {
 
     await fs.mkdir(cwd, { recursive: true });
     await fs.cp(stageDir, cwd, { recursive: true });
+
+    if (useGit) {
+      const ctx = new ApplyContext(cwd, dryRun, true);
+      await ctx.writeTemplateIfMissing(".gitignore", "shared/gitignore");
+      await initGitRepository(cwd, dryRun);
+    }
 
     return { source, config: parsedKfg };
   } finally {
