@@ -7,6 +7,7 @@ import * as p from "@clack/prompts";
 import { defineCommand, runMain } from "citty";
 import pc from "picocolors";
 import YAML from "yaml";
+import { type CatalogOption, STACK_CATALOG } from "./catalog.js";
 import { applyPlan, isGitWorkingTreeDirty } from "./engine/apply.js";
 import { diffConfigs } from "./engine/diff.js";
 import { applyTemplate } from "./engine/template.js";
@@ -90,6 +91,7 @@ async function executeApplyFlow(options: {
     desired,
     registry: MODULE_REGISTRY,
     dryRun,
+    noInstall,
   });
 
   if (dryRun) {
@@ -108,36 +110,62 @@ async function executeApplyFlow(options: {
   p.outro(`Synced ${result.operations.length} operation(s) to ktr.kfg.`);
 }
 
+function getActiveCatalogOptions(cfg: KfgConfig): CatalogOption[] {
+  const cfgRecord = cfg as unknown as Record<string, Record<string, unknown>>;
+  const active: CatalogOption[] = [];
+
+  for (const layer of STACK_CATALOG) {
+    const section = cfgRecord[layer.name];
+    if (!section) continue;
+    for (const slot of layer.slots) {
+      const val = section[slot.key];
+      if (Array.isArray(val)) {
+        for (const opt of slot.options) {
+          if (val.includes(opt.value)) active.push(opt);
+        }
+      } else if (typeof val === "boolean") {
+        if (val) {
+          const opt = slot.options.find((o) => o.value === "true");
+          if (opt) active.push(opt);
+        }
+      } else if (typeof val === "string" && val !== "none") {
+        const opt = slot.options.find((o) => o.value === val);
+        if (opt) active.push(opt);
+      }
+    }
+  }
+
+  return active;
+}
+
 async function collectDoctorIssues(
   cwd: string,
   cfg: KfgConfig,
 ): Promise<string[]> {
   const issues: string[] = [];
+  const activeOptions = getActiveCatalogOptions(cfg);
 
-  const workspaceChecks: [boolean, string][] = [
-    [cfg.shared.workspace === "turborepo", "pnpm-workspace.yaml"],
-    [cfg.shared.validation === "zod", "packages/shared/package.json"],
-    [cfg.frontend.framework !== "none", "apps/web/package.json"],
-    [cfg.backend.framework === "hono", "apps/api/package.json"],
-    [
-      cfg.data.database === "postgres" ||
-        cfg.data.kv === "valkey" ||
-        cfg.data.edge === "turso" ||
-        cfg.data.storage === "r2",
-      "packages/db/package.json",
-    ],
-    [cfg.identity.auth === "better-auth", "packages/auth/package.json"],
-    [cfg.commerce.mor !== "none", "packages/billing/package.json"],
-    [cfg.ops.queue !== "none", "apps/worker/package.json"],
-  ];
+  const expectedWorkspaces = new Set<string>();
+  const expectedDockerServices = new Set<string>();
+  const expectedEnvKeys = new Set<string>();
 
-  for (const [enabled, relPath] of workspaceChecks) {
-    if (enabled && !existsSync(path.join(cwd, relPath))) {
+  for (const opt of activeOptions) {
+    if (opt.expectedWorkspace) expectedWorkspaces.add(opt.expectedWorkspace);
+    for (const svc of opt.dockerServices ?? []) {
+      expectedDockerServices.add(svc.name);
+    }
+    for (const key of Object.keys(opt.envVars ?? {})) {
+      expectedEnvKeys.add(key);
+    }
+  }
+
+  for (const relPath of expectedWorkspaces) {
+    if (!existsSync(path.join(cwd, relPath))) {
       issues.push(`Missing workspace file: ${relPath}`);
     }
   }
 
-  if (cfg.data.database === "postgres" || cfg.data.kv === "valkey") {
+  if (expectedDockerServices.size > 0) {
     const composePath = path.join(cwd, "compose.yml");
     if (!existsSync(composePath)) {
       issues.push("Missing compose.yml");
@@ -145,28 +173,20 @@ async function collectDoctorIssues(
       const composeDoc = YAML.parse(await fs.readFile(composePath, "utf8")) as {
         services?: Record<string, unknown>;
       };
-      if (cfg.data.database === "postgres" && !composeDoc?.services?.postgres) {
-        issues.push("compose.yml missing postgres service");
-      }
-      if (cfg.data.kv === "valkey" && !composeDoc?.services?.valkey) {
-        issues.push("compose.yml missing valkey service");
+      for (const svcName of expectedDockerServices) {
+        if (!composeDoc?.services?.[svcName]) {
+          issues.push(`compose.yml missing ${svcName} service`);
+        }
       }
     }
   }
 
-  const requiredEnvKeys: string[] = [];
-  if (cfg.backend.framework === "hono") requiredEnvKeys.push("PORT");
-  if (cfg.data.database === "postgres") requiredEnvKeys.push("DATABASE_URL");
-  if (cfg.data.kv === "valkey") requiredEnvKeys.push("VALKEY_URL");
-  if (cfg.commerce.mor === "creem") requiredEnvKeys.push("CREEM_API_KEY");
-  if (cfg.commerce.mor === "polar") requiredEnvKeys.push("POLAR_ACCESS_TOKEN");
-
-  if (requiredEnvKeys.length > 0) {
+  if (expectedEnvKeys.size > 0) {
     const envPath = path.join(cwd, ".env.example");
     const envContent = existsSync(envPath)
       ? await fs.readFile(envPath, "utf8")
       : "";
-    for (const key of requiredEnvKeys) {
+    for (const key of expectedEnvKeys) {
       if (!envContent.includes(`${key}=`)) {
         issues.push(`.env.example missing ${key}`);
       }

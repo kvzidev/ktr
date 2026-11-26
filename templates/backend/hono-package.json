@@ -6,10 +6,5 @@
   "scripts": {
     "dev": "node --watch src/index.ts",
     "build": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@hono/node-server": "^1.14.0",
-    "@hono/zod-validator": "^0.4.3",
-    "hono": "^4.7.0"
   }
 }

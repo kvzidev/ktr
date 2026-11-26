@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   ApplyContext,
   deepMergePreservingExisting,
+  formatPackageArg,
 } from "../../src/engine/apply.js";
 
 const tempDirs: string[] = [];
@@ -90,6 +91,42 @@ describe("ApplyContext", () => {
       deepMergePreservingExisting({ a: { x: 1 } }, { a: { x: 2, y: 3 } }),
     ).toEqual({
       a: { x: 1, y: 3 },
+    });
+  });
+
+  it("formats package args and skips create/install under noInstall", async () => {
+    expect(formatPackageArg({ name: "hono" })).toBe("hono");
+    expect(formatPackageArg({ name: "zod", version: "^4" })).toBe("zod@^4");
+
+    const cwd = await makeTempDir();
+    const ctx = new ApplyContext(cwd, false, true);
+
+    await ctx.runCreateCli({
+      targetDir: "apps/web",
+      command: "pnpm",
+      args: ["create", "astro", "apps/web"],
+      fallbackPackage: { path: "apps/web/package.json", name: "@repo/web" },
+    });
+    ctx.queuePackages(
+      [
+        { name: "nanostores", target: "apps/web" },
+        {
+          name: "@nanostores/react",
+          target: "apps/web",
+          when: (cfg) => cfg.frontend?.framework === "vite-react",
+        },
+      ],
+      { frontend: { framework: "astro" } },
+    );
+    await ctx.flushPackages();
+
+    const pkg = JSON.parse(
+      await fs.readFile(path.join(cwd, "apps/web/package.json"), "utf8"),
+    );
+    expect(pkg.name).toBe("@repo/web");
+    expect(ctx.operations).toContainEqual({
+      type: "install",
+      target: "apps/web: nanostores",
     });
   });
 });

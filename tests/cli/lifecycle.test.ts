@@ -38,6 +38,7 @@ describe("multi-year lifecycle integration", () => {
       desired: step1Desired,
       registry: MODULE_REGISTRY,
       dryRun: false,
+      noInstall: true,
     });
 
     expect(step1.finalConfig.frontend.framework).toBe("astro");
@@ -69,6 +70,7 @@ describe("multi-year lifecycle integration", () => {
       desired: step2Desired,
       registry: MODULE_REGISTRY,
       dryRun: false,
+      noInstall: true,
     });
 
     // 4. Re-run again: add commerce (creem) + entitlements + webhooks
@@ -87,6 +89,7 @@ describe("multi-year lifecycle integration", () => {
       desired: step3Desired,
       registry: MODULE_REGISTRY,
       dryRun: false,
+      noInstall: true,
     });
 
     // Kysely should have been auto-added by DAG for commerce.mor:creem

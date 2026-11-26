@@ -5,9 +5,5 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
-  },
-  "dependencies": {
-    "@better-auth/kysely-adapter": "^0.1.0",
-    "better-auth": "^1.2.0"
   }
 }

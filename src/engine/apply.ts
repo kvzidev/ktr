@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import YAML from "yaml";
+import type { CreateCliSpec, PackageSpec } from "../catalog.js";
 import { type KfgConfig, serializeKfg } from "../kfg/schema.js";
 import type { ModuleDefinition } from "../registry/types.js";
 import { syncBarrels } from "./barrels.js";
@@ -13,7 +14,15 @@ import { diffConfigs } from "./diff.js";
 const execFileAsync = promisify(execFile);
 
 export interface ApplyOperation {
-  type: "created" | "skipped" | "synced" | "merged" | "docker" | "env";
+  type:
+    | "created"
+    | "skipped"
+    | "synced"
+    | "merged"
+    | "docker"
+    | "env"
+    | "create"
+    | "install";
   target: string;
 }
 
@@ -58,13 +67,19 @@ function interpolate(template: string, vars: Record<string, string>): string {
   );
 }
 
+export function formatPackageArg(spec: PackageSpec): string {
+  return spec.version ? `${spec.name}@${spec.version}` : spec.name;
+}
+
 export class ApplyContext {
   public readonly operations: ApplyOperation[] = [];
   private readonly templatesDir = resolveTemplatesDir();
+  private readonly queuedPackages = new Map<string, Set<string>>();
 
   constructor(
     public readonly cwd: string,
     public readonly dryRun: boolean,
+    public readonly noInstall = false,
   ) {}
 
   async writeIfMissing(relPath: string, content: string) {
@@ -156,6 +171,81 @@ export class ApplyContext {
       this.operations.push({ type: "env", target: ".env.example" });
     }
   }
+
+  async runCreateCli(spec: CreateCliSpec): Promise<void> {
+    const absTarget = path.join(this.cwd, spec.targetDir);
+    if (existsSync(absTarget)) {
+      this.operations.push({ type: "skipped", target: spec.targetDir });
+      return;
+    }
+
+    if (this.dryRun || this.noInstall) {
+      if (spec.fallbackPackage) {
+        await this.writeIfMissing(
+          spec.fallbackPackage.path,
+          `${JSON.stringify({ name: spec.fallbackPackage.name, version: "0.0.1", private: true, type: "module" }, null, 2)}\n`,
+        );
+      }
+      this.operations.push({ type: "create", target: spec.targetDir });
+      return;
+    }
+
+    await execFileAsync(spec.command, spec.args, { cwd: this.cwd });
+    this.operations.push({ type: "create", target: spec.targetDir });
+  }
+
+  queuePackages(
+    specs: PackageSpec[],
+    cfg: Record<string, Record<string, unknown>>,
+  ): void {
+    for (const spec of specs) {
+      if (spec.when && !spec.when(cfg)) continue;
+      const target = spec.target ?? ".";
+      const mode = spec.dev ? "dev" : "prod";
+      const bucketKey = `${target}::${mode}`;
+      const existing = this.queuedPackages.get(bucketKey) ?? new Set<string>();
+      existing.add(formatPackageArg(spec));
+      this.queuedPackages.set(bucketKey, existing);
+    }
+  }
+
+  async flushPackages(): Promise<void> {
+    for (const [bucketKey, pkgSet] of this.queuedPackages.entries()) {
+      const [target, mode] = bucketKey.split("::");
+      const pkgs = [...pkgSet];
+      if (pkgs.length === 0) continue;
+
+      const label = `${target}: ${pkgs.join(", ")}`;
+      this.operations.push({ type: "install", target: label });
+
+      if (this.dryRun || this.noInstall) continue;
+
+      const isDev = mode === "dev";
+      if (target === ".") {
+        await execFileAsync(
+          "pnpm",
+          ["add", "-w", ...(isDev ? ["-D"] : []), ...pkgs],
+          { cwd: this.cwd },
+        );
+        continue;
+      }
+
+      const pkgJsonPath = path.join(this.cwd, target, "package.json");
+      let filterName = target;
+      if (existsSync(pkgJsonPath)) {
+        const parsed = JSON.parse(await fs.readFile(pkgJsonPath, "utf8")) as {
+          name?: string;
+        };
+        if (parsed.name) filterName = parsed.name;
+      }
+
+      await execFileAsync(
+        "pnpm",
+        ["--filter", filterName, "add", ...(isDev ? ["-D"] : []), ...pkgs],
+        { cwd: this.cwd },
+      );
+    }
+  }
 }
 
 export async function isGitWorkingTreeDirty(cwd: string): Promise<boolean> {
@@ -175,23 +265,32 @@ export async function applyPlan(options: {
   desired: KfgConfig;
   registry: Map<string, ModuleDefinition>;
   dryRun: boolean;
+  noInstall?: boolean;
 }): Promise<{
   finalConfig: KfgConfig;
   autoAdded: string[];
   operations: ApplyOperation[];
 }> {
-  const { cwd, existing, desired, registry, dryRun } = options;
+  const {
+    cwd,
+    existing,
+    desired,
+    registry,
+    dryRun,
+    noInstall = false,
+  } = options;
   const { modulesToApply, autoAdded, finalConfig } = diffConfigs(
     existing,
     desired,
     registry,
   );
-  const ctx = new ApplyContext(cwd, dryRun);
+  const ctx = new ApplyContext(cwd, dryRun, noInstall);
 
   for (const mod of modulesToApply) {
     await mod.apply(ctx, finalConfig);
   }
 
+  await ctx.flushPackages();
   await syncBarrels(ctx, finalConfig);
 
   if (!dryRun) {
