@@ -14,6 +14,11 @@ pnpm dlx @kvzidev/ktr
 
 Requires **Node.js >= 22** and **pnpm >= 9**.
 
+> [!WARNING]
+> Not tested.
+> This project is under development.
+> Feel free to reach out and propose changes.
+
 ## How It Works
 
 - **Idempotent sync**: User files are only written if missing. `package.json`, `compose.yml`, and `.env.example` are merged non-destructively.
