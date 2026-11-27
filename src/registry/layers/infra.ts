@@ -32,6 +32,7 @@ export const infraLayer: CatalogLayer = {
       kind: "select",
       message: "Hosting target",
       options: [
+        { value: "vps", label: "Generic VPS" },
         { value: "hetzner", label: "Hetzner" },
         { value: "railway", label: "Railway" },
         { value: "fly", label: "Fly.io" },

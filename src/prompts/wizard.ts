@@ -129,11 +129,76 @@ export async function promptSelectedLayers(
   return current;
 }
 
+export type VpsScope = "api-only" | "full-e2e";
+
+export function createVpsPresetConfig(
+  projectName: string,
+  scope: VpsScope,
+): KfgConfig {
+  const cfg = createDefaultKfg(projectName);
+
+  cfg.shared.workspace = "turborepo";
+  cfg.shared.validation = "zod";
+  cfg.shared.quality = "biome";
+  cfg.shared.testing =
+    scope === "full-e2e" ? ["vitest", "playwright"] : ["vitest"];
+
+  if (scope === "full-e2e") {
+    cfg.frontend.framework = "astro";
+    cfg.frontend.css = "tailwind";
+    cfg.frontend.state = "nanostores";
+    cfg.frontend.data_fetching = "tanstack-query";
+    cfg.frontend.forms = "astro-actions";
+  }
+
+  cfg.backend.framework = "hono";
+  cfg.backend.sanitizer = "sanitize-html";
+
+  cfg.data.database = "postgres";
+  cfg.data.kv = "valkey";
+  cfg.data.dal = "kysely";
+
+  cfg.identity.auth = "better-auth";
+
+  cfg.ops.queue = "pg-boss";
+  cfg.ops.logging = "pino";
+  cfg.ops.errors = "glitchtip";
+  cfg.ops.uptime = "uptime-kuma";
+
+  cfg.infra.containers = "docker-compose";
+  cfg.infra.hosting = "vps";
+  cfg.infra.deploy = "kamal2";
+  cfg.infra.ci = "github-actions";
+
+  return cfg;
+}
+
 export async function promptFromPreset(
   mode: string,
   projectName: string,
 ): Promise<KfgConfig> {
   let cfg = createDefaultKfg(projectName);
+
+  if (mode === "vps") {
+    const scope = handleCancel(
+      await p.select({
+        message: "VPS stack scope",
+        options: [
+          {
+            value: "api-only",
+            label: "API / Backend only",
+            hint: "Hono + Postgres + Valkey + Better Auth + Ops + Docker/Kamal",
+          },
+          {
+            value: "full-e2e",
+            label: "Full E2E stack",
+            hint: "Adds Astro + Tailwind + Nanostores + Playwright",
+          },
+        ],
+      }),
+    );
+    return createVpsPresetConfig(projectName, scope as VpsScope);
+  }
 
   if (mode === "frontend-only") {
     cfg.shared.workspace = "turborepo";
@@ -249,6 +314,11 @@ export async function runWizard(
           value: "api-only",
           label: "API / Backend only",
           hint: "Hono + Data; add frontend later",
+        },
+        {
+          value: "vps",
+          label: "VPS self-hosted",
+          hint: "Zero-prompt self-hosted stack (Docker + PG + Valkey)",
         },
         {
           value: "full-stack",
