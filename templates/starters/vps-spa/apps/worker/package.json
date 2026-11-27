@@ -1,0 +1,14 @@
+{
+  "name": "@repo/worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.ts",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/ops": "workspace:*",
+    "bullmq": "^5.41.0"
+  }
+}

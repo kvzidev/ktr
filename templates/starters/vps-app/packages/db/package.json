@@ -1,0 +1,17 @@
+{
+  "name": "@repo/db",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "iovalkey": "^0.3.3",
+    "kysely": "^0.28.0",
+    "pg": "^8.14.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.0"
+  }
+}

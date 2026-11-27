@@ -7,6 +7,7 @@ import {
   applyTemplate,
   resolveTemplateSource,
 } from "../../src/engine/template.js";
+import { collectDoctorIssues } from "../../src/index.js";
 import {
   createDefaultKfg,
   parseAndValidateKfg,
@@ -51,16 +52,59 @@ describe("template resolver and applyTemplate", () => {
       kind: "local",
       path: "/work/my-template",
     });
+    const builtIn = resolveTemplateSource("ktr/vps-api");
+    expect(builtIn.kind).toBe("local");
+    if (builtIn.kind === "local") {
+      expect(builtIn.path).toMatch(/templates\/starters\/vps-api$/);
+    }
   });
 
-  it("rejects empty input and invalid gh/ shorthand", () => {
+  it("rejects empty input, invalid gh/ shorthand, and invalid ktr/ names", () => {
     expect(() => resolveTemplateSource("   ")).toThrow(
       "Template source cannot be empty",
     );
     expect(() => resolveTemplateSource("gh/only-owner")).toThrow(
       "Invalid GitHub shorthand",
     );
+    expect(() => resolveTemplateSource("ktr/../evil")).toThrow(
+      "Invalid built-in template",
+    );
+    expect(() => resolveTemplateSource("ktr/")).toThrow(
+      "Invalid built-in template",
+    );
   });
+
+  it.each(["vps-api", "vps-app", "vps-spa"])(
+    "applies built-in starter ktr/%s and passes doctor checks",
+    async (starterName) => {
+      const targetDir = await makeTempDir(`ktr-${starterName}-`);
+      const applied = await applyTemplate({
+        cwd: targetDir,
+        sourceInput: `ktr/${starterName}`,
+        projectName: `my-${starterName}`,
+        dryRun: false,
+      });
+
+      expect(applied.config?.meta.project_name).toBe(`my-${starterName}`);
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(targetDir, "package.json"), "utf8"),
+      );
+      expect(pkg.name).toBe(`my-${starterName}`);
+
+      const kamal = await fs.readFile(
+        path.join(targetDir, "infra/kamal/deploy.yml"),
+        "utf8",
+      );
+      expect(kamal).toContain(`service: my-${starterName}`);
+      expect(kamal).toContain(`image: my-${starterName}`);
+
+      const loaded = parseAndValidateKfg(
+        await fs.readFile(path.join(targetDir, "ktr.kfg"), "utf8"),
+      );
+      const issues = await collectDoctorIssues(targetDir, loaded);
+      expect(issues).toEqual([]);
+    },
+  );
 
   it("applies a local template, strips .git, updates project_name, and supports later expansion", async () => {
     const sourceDir = await makeTempDir("ktr-src-");

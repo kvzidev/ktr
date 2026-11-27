@@ -49,7 +49,7 @@ export function deepMergePreservingExisting(
   return result;
 }
 
-function resolveTemplatesDir(): string {
+export function resolveTemplatesDir(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
     path.resolve(here, "../templates"),

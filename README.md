@@ -38,6 +38,7 @@ Requires **Node.js >= 22** and **pnpm >= 9**.
 
 `--template <source>` accepts:
 
+- Built-in starters: `ktr/vps-api`, `ktr/vps-app`, `ktr/vps-spa`
 - GitHub shorthand: `gh/owner/repo` or `gh/owner/repo#branch`
 - Git URL: `https://...`, `ssh://...`, `git@...`
 - Local directory path containing a `ktr.kfg` starter project

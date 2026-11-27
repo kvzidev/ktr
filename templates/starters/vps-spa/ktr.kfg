@@ -1,0 +1,58 @@
+; ktr.kfg — managed by `npx ktr` (safe to edit; re-run `npx ktr` to sync)
+
+[meta]
+schema_version : 1
+cli_version : 0.0.3
+project_name : vps-spa
+package_manager : pnpm
+
+[shared]
+workspace : turborepo
+validation : zod
+quality : biome
+testing : [vitest, playwright]
+
+[frontend]
+framework : vite-react
+css : tailwind
+state : nanostores
+data_fetching : tanstack-query
+forms : react-hook-form
+
+[backend]
+framework : hono
+sanitizer : sanitize-html
+
+[data]
+database : postgres
+kv : valkey
+edge : none
+dal : kysely
+storage : none
+
+[identity]
+auth : better-auth
+bot_shield : none
+
+[commerce]
+mor : none
+billing_di : false
+entitlements : false
+webhooks : false
+usage_ledger : false
+
+[ops]
+queue : bullmq
+email : none
+logging : pino
+errors : glitchtip
+uptime : uptime-kuma
+
+[infra]
+edge_network : none
+containers : docker-compose
+hosting : vps
+deploy : kamal2
+ci : github-actions
+secrets : none
+backups : none

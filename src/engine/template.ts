@@ -9,7 +9,11 @@ import {
   parseAndValidateKfg,
   serializeKfg,
 } from "../kfg/schema.js";
-import { ApplyContext, initGitRepository } from "./apply.js";
+import {
+  ApplyContext,
+  initGitRepository,
+  resolveTemplatesDir,
+} from "./apply.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -31,6 +35,19 @@ export function resolveTemplateSource(
   const aliased = TEMPLATE_ALIASES[trimmed];
   if (aliased) {
     return resolveTemplateSource(aliased, cwd);
+  }
+
+  if (trimmed.startsWith("ktr/")) {
+    const starterName = trimmed.slice(4).trim();
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(starterName)) {
+      throw new Error(
+        `Invalid built-in template "${trimmed}". Expected ktr/<starter-name>.`,
+      );
+    }
+    return {
+      kind: "local",
+      path: path.join(resolveTemplatesDir(), "starters", starterName),
+    };
   }
 
   if (trimmed.startsWith("gh/")) {
@@ -140,6 +157,16 @@ export async function applyTemplate(options: {
       >;
       pkg.name = projectName;
       await fs.writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
+    }
+
+    const kamalPath = path.join(stageDir, "infra/kamal/deploy.yml");
+    if (existsSync(kamalPath)) {
+      const rawKamal = await fs.readFile(kamalPath, "utf8");
+      await fs.writeFile(
+        kamalPath,
+        rawKamal.replace(/\{\{projectName\}\}/g, projectName),
+        "utf8",
+      );
     }
 
     await fs.mkdir(cwd, { recursive: true });
